@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  harmonyø4:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: harmonyø4-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+      # Optional: binary compression core (mount to /core)
+      - HARMONY4_CORE_PATH=/core/libh4core.so
+    volumes:
+      - ./examples:/app/examples:ro
+      # Optional: binary core volume (uncomment if core is available)
+      # - ./core:/core:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - harmonyø4-network
+
+  # Optional: Reverse proxy (nginx)
+  # Uncomment to add nginx reverse proxy on port 80
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: harmonyø4-proxy
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - harmonyø4
+  #   networks:
+  #     - harmonyø4-network
+
+networks:
+  harmonyø4-network:
+    driver: bridge

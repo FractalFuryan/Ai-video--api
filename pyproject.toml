@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harmonyø4"
+version = "1.0.0"
+description = "HarmonyØ4 Media API: Transport-only tokenization + seeking infrastructure"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "FractalFuryan", email = "dev@harmonyø4.local"}
+]
+license = {text = "MIT"}
+keywords = [
+    "media",
+    "tokenization",
+    "h4mk",
+    "streaming",
+    "seeking",
+    "fastapi",
+    "audio",
+    "video"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia",
+]
+
+dependencies = [
+    "fastapi==0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "pydantic==2.5.0",
+    "python-multipart==0.0.6",
+    "numpy>=1.24.0",
+    "cryptography>=41.0.0",
+]
+
+[project.scripts]
+"harmonyø4" = "cli.main:main"
+"harmonyø4-compress" = "cli.compress:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/FractalFuryan/harmonyø4"
+Documentation = "https://github.com/FractalFuryan/harmonyø4#readme"
+Repository = "https://github.com/FractalFuryan/harmonyø4.git"
+Issues = "https://github.com/FractalFuryan/harmonyø4/issues"
+
+[tool.setuptools]
+packages = [
+    "api",
+    "tokenizers",
+    "container",
+    "utils",
+    "adapters",
+    "cli",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short"

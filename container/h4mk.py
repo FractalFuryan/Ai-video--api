@@ -19,10 +19,11 @@ import struct
 import zlib
 import json
 from dataclasses import dataclass
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 
 from utils.crypto import sha256
 from compression import load_engine  # ✅ NEW
+from crypto.living_bindings import CoreContext, encrypt_core_block  # ✅ CIPHER
 
 MAGIC = b"H4MK"
 VERSION = 1
@@ -85,6 +86,7 @@ def build_h4mk(
     seek_entries: List[Tuple[int, int]],
     meta: Dict[str, Any],
     safe: Dict[str, Any],
+    cipher_state: Optional[Any] = None,  # ✅ CIPHER — LivingState for optional encryption
 ) -> bytes:
     """Build complete H4MK container.
     
@@ -93,6 +95,9 @@ def build_h4mk(
         seek_entries: List of (pts_us, offset_bytes) for keyframes
         meta: Metadata dict (project, domain, codecs, hints)
         safe: Safety scopes dict (constraints, no-ml, etc.)
+        cipher_state: Optional LivingState for encrypting CORE blocks behind cipher.
+                      If provided, blocks are compressed THEN encrypted.
+                      If None, blocks stored compressed but unencrypted.
     
     Returns:
         Complete H4MK binary (header + chunks + VERI)
@@ -101,12 +106,34 @@ def build_h4mk(
     comp_info = compressor.info()   # safe metadata only
 
     chunks: List[Chunk] = []
+    
+    # Calculate container integrity hash FIRST (needed for context binding)
+    # This is a placeholder; actual VERI will be recalculated at end
+    container_veri_temp = sha256(b"temp")
 
-    # CORE chunks (compressed transparently)
-    # NOTE: Container remains fully auditable; algorithm remains opaque when using core.
-    for b in core_blocks:
+    # CORE chunks (compressed, optionally encrypted)
+    # Pipeline: plaintext → compress → [encrypt] → CORE chunk
+    for block_index, b in enumerate(core_blocks):
+        # 1. Compress
         cb = compressor.compress(b)
-        chunks.append(Chunk(b"CORE", cb))
+        
+        # 2. Optionally encrypt compressed bytes
+        if cipher_state is not None:
+            ctx = CoreContext(
+                engine_id=comp_info.get("engine_id", "unknown"),
+                engine_fp=comp_info.get("fingerprint", "unknown"),
+                container_veri_hex=container_veri_temp.hex(),
+                track_id=meta.get("track_id", "unknown"),
+                pts_us=meta.get("pts_us", 0),
+                chunk_index=block_index,
+            )
+            header, ciphertext = encrypt_core_block(cipher_state, cb, ctx)
+            # Store encrypted block: header + ciphertext
+            encrypted_payload = header + ciphertext
+            chunks.append(Chunk(b"CORE", encrypted_payload))
+        else:
+            # No encryption, store compressed directly
+            chunks.append(Chunk(b"CORE", cb))
 
     # SEEK table
     chunks.append(Chunk(b"SEEK", pack_seek_entries(seek_entries)))
@@ -122,6 +149,15 @@ def build_h4mk(
         "opaque": bool(comp_info.get("opaque", False)),
         "sealed": bool(comp_info.get("sealed", False)),  # 🔐 Tamper-evident
     }
+    
+    # Encryption metadata (if cipher used)
+    if cipher_state is not None:
+        meta["encryption"] = {
+            "cipher": "living-cipher-v3",
+            "mode": "compress-then-encrypt",
+            "context_binding": "container+track+timestamp+index",
+            "sealed": True,
+        }
 
     # Metadata
     chunks.append(Chunk(b"META", pack_meta(meta)))

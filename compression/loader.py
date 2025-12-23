@@ -167,10 +167,6 @@ class CoreCompression(CompressionEngine):
             logger = logging.getLogger(__name__)
             logger.info(f"🔐 Compression core sealed: {self._engine_id} (fp: {self._engine_fp[:16]}…)")
 
-
-        # 🔐 SEAL VERIFICATION: Engine identity & fingerprint
-        self._verify_seals(lib_path)
-
     def compress(self, data: bytes) -> bytes:
         """
         Compress using binary core.

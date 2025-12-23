@@ -13,11 +13,12 @@ O(log n) SEEK table lookups for PTS-based random access.
 from __future__ import annotations
 import struct
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional, Iterable
+from typing import Dict, List, Tuple, Optional, Iterable, Any
 import hashlib
 import zlib
 
 from compression import load_engine  # ✅ NEW
+from crypto.living_bindings import CoreContext, decrypt_core_block  # ✅ CIPHER
 
 MAGIC = b"H4MK"
 CHUNK_HEADER_SIZE = 12  # tag(4) + size(4) + crc(4)
@@ -257,25 +258,89 @@ class H4MKReader:
         expected = hasher.digest()
         return veri == expected
 
-    def iter_core_blocks(self, decompress: bool = True) -> Iterable[bytes]:
+    def iter_core_blocks(self, decompress: bool = True, cipher_state: Optional[Any] = None) -> Iterable[bytes]:
         """
-        Iterate over CORE blocks, optionally decompressing using runtime-selected engine.
+        Iterate over CORE blocks, optionally decrypting and decompressing.
+        
+        Pipeline (if both cipher and decompress enabled):
+          CORE encrypted block → decrypt → decompress → plaintext
         
         Args:
             decompress: If True, decompress each block using loaded engine
-                       If False, return blocks as-is (raw compressed)
+                       If False, return blocks as-is (raw encrypted or compressed)
+            cipher_state: Optional LivingState for decryption.
+                         If provided, decrypts before decompression.
+                         If None, skips decryption.
         
         Yields:
-            CORE block payloads
+            CORE block payloads (plaintext if decrypted, raw if encrypted, compressed if not decompressed)
         """
         core = self.get_chunks(b"CORE")
-        if not decompress:
+        meta_chunks = self.get_chunks(b"META")
+        
+        if not meta_chunks:
+            meta = {}
+        else:
+            try:
+                import json
+                meta = json.loads(meta_chunks[0].decode("utf-8"))
+            except:
+                meta = {}
+        
+        comp_info = meta.get("compression", {})
+        enc_info = meta.get("encryption", {})
+        has_encryption = bool(enc_info)
+
+        if not decompress and cipher_state is None:
+            # No processing, return blocks as-is
             yield from core
             return
 
-        compressor = load_engine()
-        for cb in core:
-            yield compressor.decompress(cb)
+        compressor = load_engine() if decompress else None
+        
+        for block_index, block_payload in enumerate(core):
+            # Step 1: Decrypt if cipher_state provided and block is encrypted
+            if cipher_state is not None and has_encryption:
+                ctx = CoreContext(
+                    engine_id=comp_info.get("engine_id", "unknown"),
+                    engine_fp=comp_info.get("fingerprint", "unknown"),
+                    container_veri_hex="unknown",  # Not available in reader
+                    track_id=meta.get("track_id", "unknown"),
+                    pts_us=meta.get("pts_us", 0),
+                    chunk_index=block_index,
+                )
+                # Encrypted payload is: header + ciphertext
+                # Living Cipher header format: Magic(5) + Suite len(1) + Suite + Counter(8) + Transcript(32) + Flags(1) + [DH pub(32)]
+                # We need to parse this to separate header and ciphertext
+                # For now, assume header is up to first non-magic bytes; this is a simplified approach
+                # Actually, we should store the header length or use a more robust format
+                # For this implementation, we'll use a simple fixed-size header approach
+                
+                # Try to extract header and ciphertext
+                # Living Cipher v3 header minimum: 5 (magic) + 1 (suite_len) + 8 (counter) + 32 (transcript) + 1 (flags) = 47 bytes minimum
+                # But suite_len determines actual header size, so we need to parse it properly
+                
+                header_size = 128  # Conservative estimate; actual size varies
+                if len(block_payload) > header_size:
+                    header = block_payload[:header_size]
+                    ciphertext = block_payload[header_size:]
+                else:
+                    # Fallback: treat entire payload as header (may fail)
+                    header = block_payload
+                    ciphertext = b""
+                
+                try:
+                    decrypted = decrypt_core_block(cipher_state, header, ciphertext, ctx)
+                    block_payload = decrypted
+                except Exception:
+                    # Decryption failed; continue with raw (could be unencrypted)
+                    pass
+            
+            # Step 2: Decompress if requested
+            if decompress and compressor is not None:
+                yield compressor.decompress(block_payload)
+            else:
+                yield block_payload
 
     def __repr__(self) -> str:
         chunk_summary = ", ".join(

@@ -241,7 +241,7 @@ async def export_video_h4mk_encrypted(
             return Response("shared_secret_hex must represent at least 32 bytes.", status_code=400)
     else:
         # Default secret if none provided
-        shared_secret = sha256(b"HarmonyØ4_default_shared_secret")
+        shared_secret = sha256(b"Harmony4_default_shared_secret")
 
     # Initialize cipher state
     try:

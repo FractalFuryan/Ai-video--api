@@ -188,9 +188,9 @@ class TestLivingCipherBindings:
 
     def test_encrypt_decrypt_core_block(self):
         """Encrypt and decrypt a CORE block with context binding."""
+        from tests.test_living_cipher import init_peer_states
         shared_secret = sha256(b"shared_secret")
-        state_a = init_from_shared_secret(shared_secret)
-        state_b = init_from_shared_secret(shared_secret)
+        state_a, state_b = init_peer_states(shared_secret)
 
         ctx = CoreContext(
             engine_id="geom-ref",

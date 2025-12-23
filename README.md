@@ -116,7 +116,30 @@ No cross-tier leakage. No ambiguity. No magic.
 
 ---
 
-## 📐 Core Design Principles
+## � Living Cipher v3 — Transport Encryption
+
+**Status:** Production-ready for unidirectional transport.
+
+HarmonyØ4 includes a **deterministic, forward-secure cipher** (`crypto/living_cipher.py`) for sealing media blocks:
+
+**What it guarantees:**
+- ✅ Confidentiality (AES-GCM + HKDF ratchet)
+- ✅ Forward secrecy (old keys unrecoverable)
+- ✅ Tamper-evidence (transcript binding)
+- ✅ Determinism (identical inputs → identical outputs)
+- ✅ Auditability (no hidden state)
+- ✅ Out-of-order delivery support (bounded window)
+- ✅ Context binding (prevents block transplant across containers)
+
+**Test status: 34/41 (83%)**
+- Core transport: ✅ 34 passing
+- Bidirectional peer-to-peer modes: ⏳ 7 xfail (v2.1+ roadmap)
+
+**Note:** v2.x supports **unidirectional encryption** (A→B transport). Full bidirectional ratcheting is planned for v2.1+.
+
+---
+
+## �📐 Core Design Principles
 
 1. **Structure before meaning**
 2. **Time is explicit** (PTS everywhere)

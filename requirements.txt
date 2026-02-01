@@ -13,3 +13,5 @@ bcrypt
 numpy
 cryptography
 httpx
+pytest
+pytest-cov

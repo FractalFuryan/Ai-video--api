@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from sqlalchemy import (
     String,
     Boolean,
@@ -23,7 +24,7 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class ApiKey(Base):
@@ -34,10 +35,10 @@ class ApiKey(Base):
     key_hash: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_used_at: Mapped = mapped_column(DateTime(timezone=True), nullable=True)
-    expires_at: Mapped = mapped_column(DateTime(timezone=True), nullable=True)
-    revoked_at: Mapped = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     needs_rehash: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     user = relationship("User")
@@ -50,8 +51,8 @@ class MediaFile(Base):
     h4mk_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     original_name: Mapped[str] = mapped_column(Text, nullable=False)
     uploader_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    upload_time: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
-    metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    upload_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    file_metadata: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     public_access: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     storage_backend: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -74,7 +75,7 @@ class AccessLog(Base):
     path: Mapped[str] = mapped_column(Text, nullable=False)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ua: Mapped[str | None] = mapped_column(Text, nullable=True)
-    ts: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
     media = relationship("MediaFile")
@@ -86,10 +87,10 @@ class ShareToken(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     media_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_files.id"), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    expires_at: Mapped = mapped_column(DateTime(timezone=True), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     max_uses: Mapped[int | None] = mapped_column(Integer, nullable=True)
     usage_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped = mapped_column(DateTime(timezone=True), server_default=func.now())
-    last_used_at: Mapped = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     media = relationship("MediaFile", back_populates="share_tokens")

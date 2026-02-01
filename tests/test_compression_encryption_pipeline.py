@@ -18,6 +18,8 @@ from utils.crypto import sha256
 import json
 
 
+@pytest.mark.integration
+@pytest.mark.slow
 class TestCompressionEncryptionPipeline:
     """Full pipeline: compress → encrypt → store → read → decrypt → decompress"""
 

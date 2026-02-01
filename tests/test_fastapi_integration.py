@@ -10,10 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import pytest
 from fastapi.testclient import TestClient
 from api.main import app
 
 
+@pytest.mark.integration
 def test_health():
     """Test health endpoint."""
     print("\n[1] Health Endpoint")

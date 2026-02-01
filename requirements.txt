@@ -12,3 +12,4 @@ python-dotenv
 bcrypt
 numpy
 cryptography
+httpx

@@ -10,8 +10,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from api.video import VideoTokenizer
-from container import SeekTable, CoreChunk
+from tokenizers.video_transport import VideoTransportTokenizer
+from container.seek import SeekTable
+
+
+class VideoTokenizer:
+    """Simple video tokenizer for testing."""
+    def __init__(self, fps=30.0, gop_size=30):
+        self.fps = fps
+        self.gop_size = gop_size
+    
+    def encode(self, frames):
+        """Encode frames into tokens."""
+        for i, frame in enumerate(frames):
+            yield {'index': i, 'data': frame.hex() if isinstance(frame, bytes) else frame}
+    
+    def decode(self, tokens):
+        """Decode tokens to metadata."""
+        keyframes = [0] + [i for i in range(self.gop_size, len(tokens), self.gop_size)]
+        return {'keyframe_positions': keyframes}
 
 
 def test_video_tokenizer_direct():

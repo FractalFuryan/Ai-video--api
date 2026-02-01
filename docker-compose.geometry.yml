@@ -1,0 +1,139 @@
+services:
+  harmony4-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.geometry
+    image: harmony4/geometry-api:latest
+    container_name: harmony4-geometry-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://harmony:harmony@db/harmony4
+      - REDIS_URL=redis://redis:6379/0
+      - GEOMETRY_GENERATION_ENABLED=true
+      - ETHICS_STRICT_MODE=true
+      - LOG_LEVEL=info
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/geometry/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+  geometry-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.geometry
+    image: harmony4/geometry-worker:latest
+    container_name: harmony4-geometry-worker
+    command: ["python", "-m", "celery", "-A", "tasks.geometry_tasks", "worker", "--loglevel=info"]
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://harmony:harmony@db/harmony4
+      - REDIS_URL=redis://redis:6379/0
+      - ETHICS_STRICT_MODE=true
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+      - db
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+  db:
+    image: postgres:16-alpine
+    container_name: harmony4-db
+    environment:
+      - POSTGRES_USER=harmony
+      - POSTGRES_PASSWORD=harmony
+      - POSTGRES_DB=harmony4
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harmony -d harmony4"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: harmony4-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+  viewer-cdn:
+    image: nginx:alpine
+    container_name: harmony4-viewer-cdn
+    ports:
+      - "8080:80"
+    volumes:
+      - ./static/viewer:/usr/share/nginx/html:ro
+      - ./config/nginx-viewer.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - harmony4-api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: harmony4-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - harmony4-net
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+
+networks:
+  harmony4-net:
+    driver: bridge

@@ -15,6 +15,13 @@ from api.audio import router as audio_router
 from api.video_range import router as range_router
 from api.compress import router as compress_router  # ✅ NEW
 from api.video_compat import router as video_compat_router  # ✅ COMPATIBILITY
+from api.middleware.cors import apply_cors
+from api.routes.media import router as media_router
+from api.routes.audit import router as audit_router
+from api.routes.api_keys import router as api_keys_router
+from api.routes.share import router as share_router
+from api.routes.admin import router as admin_router
+from api.routes.geometry import router as geometry_router  # ✅ G0-G5: Ethical Geometry
 
 
 @asynccontextmanager
@@ -33,12 +40,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Apply CORS policy
+apply_cors(app)
+
 # Mount routers
 app.include_router(video_router)
 app.include_router(audio_router)
 app.include_router(range_router)
 app.include_router(compress_router)  # ✅ NEW
 app.include_router(video_compat_router)  # ✅ COMPATIBILITY
+app.include_router(media_router)
+app.include_router(audit_router)
+app.include_router(api_keys_router)
+app.include_router(share_router)
+app.include_router(admin_router)
+app.include_router(geometry_router)  # ✅ G0-G5: Ethical Geometry Generation
 
 
 @app.get("/", tags=["health"])
@@ -75,12 +91,6 @@ async def root():
 
 
 @app.get("/health", tags=["health"])
-async def health():
-    """Liveness probe."""
-    return {"status": "healthy", "service": "HarmonyØ4"}
-
-
-@app.get("/health", tags=["health"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok", "project": "HarmonyØ4"}
+    return {"status": "ok", "project": "HarmonyØ4", "service": "HarmonyØ4 Media API"}

@@ -1,7 +1,14 @@
 # requirements.txt
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
+pydantic-settings
 python-multipart
+sqlalchemy
+psycopg2-binary
+alembic
+boto3
+python-dotenv
+bcrypt
 numpy
 cryptography
